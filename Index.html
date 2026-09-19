@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scan Absensi QR</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<style>
+:root{
+  --pine:#0B4F4A; --pine-d:#073632; --pine-l:#E1EFED; --saffron:#F2A900;
+  --bg:#EDF1F0; --ink:#101B1A; --muted:#566765; --line:#D6E0DE;
+  --ok:#12805C; --ok-bg:#DCF3E9; --warn:#8F5A00; --warn-bg:#FFEFC7;
+  --info:#1F5FA8; --info-bg:#DDEAFA; --bad:#B42318; --bad-bg:#FDE2DF;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:'Plus Jakarta Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--ink);font-size:15px;line-height:1.5}
+button,input,select{font:inherit;color:inherit}
+[hidden]{display:none!important}
+h1,h2{margin:0}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid transparent;background:var(--pine);color:#fff;padding:12px 18px;border-radius:10px;font-weight:700;cursor:pointer;width:100%}
+.btn:disabled{opacity:.55;cursor:not-allowed}
+.btn.danger{background:var(--bad)}
+.btn.ghost{background:#fff;color:var(--pine);border-color:var(--line)}
+.input{width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:#fff}
+.input:focus{outline:none;border-color:var(--pine);box-shadow:0 0 0 3px rgba(11,79,74,.15)}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+.field label{font-size:13px;font-weight:700}
+.hint{color:var(--muted);font-size:13px}
+.err{color:var(--bad);font-weight:600;min-height:20px;margin:6px 0}
+.panel{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px;max-width:480px;margin:0 auto}
+
+/* header sederhana */
+.top{background:var(--pine-d);color:#fff;padding:16px 18px;display:flex;justify-content:space-between;align-items:center}
+.top b{font-size:15px}
+.top small{display:block;color:#8fb3ae;font-size:12px}
+.top button{background:rgba(255,255,255,.1);border:0;color:#fff;padding:8px 12px;border-radius:8px;font-weight:600;cursor:pointer}
+.wrap{max-width:480px;margin:0 auto;padding:16px}
+
+/* login */
+#login{min-height:100vh;display:grid;place-items:center;padding:20px}
+
+/* scan */
+.vf{position:relative;aspect-ratio:1/1;width:100%;background:#08201D;border-radius:18px;overflow:hidden;display:grid;place-items:center;margin-bottom:12px}
+#reader{position:absolute;inset:0}
+#reader video{width:100%!important;height:100%!important;object-fit:cover}
+.vf .idle{color:#9dbdb8;text-align:center;padding:20px;font-size:14px}
+.vf.on .idle{display:none}
+.tools{display:flex;gap:8px;margin-bottom:16px}
+.result{border:2px solid var(--line);background:#fff;border-radius:16px;padding:16px;margin-bottom:14px;min-height:80px}
+.result h3{font-size:18px;margin-bottom:2px}
+.result p{margin:0;color:var(--muted);font-size:14px}
+.result.ok{background:var(--ok-bg);border-color:var(--ok)}
+.result.late{background:var(--warn-bg);border-color:#D89400}
+.result.dup{background:var(--info-bg);border-color:var(--info)}
+.result.err{background:var(--bad-bg);border-color:var(--bad)}
+.pill{display:inline-block;padding:2px 10px;border-radius:99px;font-size:12px;font-weight:700}
+.s-Hadir{background:var(--ok-bg);color:var(--ok)}
+.s-Terlambat{background:var(--warn-bg);color:var(--warn)}
+
+.log{list-style:none;margin:0;padding:0}
+.log li{display:flex;justify-content:space-between;gap:8px;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}
+.log li:last-child{border-bottom:0}
+.log small{color:var(--muted)}
+.empty{text-align:center;color:var(--muted);padding:14px}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--pine-d);color:#fff;padding:12px 18px;border-radius:12px;max-width:92vw;font-weight:600;z-index:50}
+.toast.err{background:var(--bad)}
+.toast.ok{background:var(--ok)}
+label[for=file-qr]{display:block;text-align:center}
+</style>
+</head>
+<body>
+
+<!-- Ganti URL ini dengan URL /exec deployment Apps Script kamu -->
+<script>
+  const SCRIPT_URL = 'GANTI_DENGAN_URL_EXEC_APPS_SCRIPT_KAMU';
+</script>
+
+<div id="login">
+  <div class="panel">
+    <h2 id="login-school" style="margin-bottom:4px">Scan Absensi QR</h2>
+    <p class="hint" id="login-year" style="margin:0 0 18px"></p>
+    <form id="login-form">
+      <div class="field">
+        <label for="pin">PIN</label>
+        <input class="input" id="pin" type="password" placeholder="Masukkan PIN" autocomplete="off" required>
+      </div>
+      <div class="err" id="login-err" role="alert"></div>
+      <button class="btn" id="login-btn" type="submit">Masuk</button>
+    </form>
+  </div>
+</div>
+
+<div id="app" hidden>
+  <div class="top">
+    <div><b id="brand-name">Scan Absensi</b><small id="brand-role"></small></div>
+    <button id="btn-logout">Keluar</button>
+  </div>
+  <div class="wrap">
+    <div class="field">
+      <label for="sel-jenis">Jenis absen</label>
+      <select class="input" id="sel-jenis"></select>
+    </div>
+    <div class="field" id="detail-wrap" hidden>
+      <label for="sel-detail" id="detail-label">Mata pelajaran</label>
+      <select class="input" id="sel-detail"></select>
+    </div>
+
+    <div class="vf" id="vf">
+      <div id="reader"></div>
+      <div class="idle">Kamera belum aktif.<br>Tekan tombol di bawah untuk mulai memindai.</div>
+    </div>
+    <div class="tools">
+      <button class="btn" id="btn-cam">Nyalakan kamera</button>
+    </div>
+    <div class="field">
+      <label for="file-qr" class="btn ghost" style="margin:0 0 4px">Pindai dari foto</label>
+      <input type="file" id="file-qr" accept="image/*" hidden>
+      <div id="reader-file" aria-hidden="true" style="position:absolute;left:-10000px;top:0;width:1px;height:1px;overflow:hidden"></div>
+    </div>
+    <div class="field">
+      <label for="scan-input">Atau ketik NIS manual</label>
+      <input class="input" id="scan-input" placeholder="Ketik NIS lalu tekan Enter" autocomplete="off">
+    </div>
+
+    <div class="result" id="result"></div>
+
+    <div class="panel" style="padding:14px 16px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
+        <h3 style="font-size:15px">Tercatat hari ini</h3>
+        <span class="hint" id="log-count"></span>
+      </div>
+      <ul class="log" id="log"></ul>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const initials = n => String(n||'?').trim().split(/\s+/).slice(0,2).map(w => w[0]).join('').toUpperCase();
+
+const state = { token:null, boot:null, jenis:null, detail:'', cam:null, camFile:null, camOn:false, camBusy:false, facing:'environment' };
+
+/* ---------------------------------------------------------------------
+ * Panggilan ke Apps Script lewat doPost().
+ * Body dikirim sebagai STRING BIASA (bukan header Content-Type kustom)
+ * supaya browser tidak mengirim preflight OPTIONS, karena Apps Script
+ * tidak bisa merespons preflight itu dengan benar.
+ * ------------------------------------------------------------------- */
+async function call(fn, ...args){
+  if (!SCRIPT_URL || SCRIPT_URL.indexOf('GANTI_DENGAN') === 0){
+    throw new Error('SCRIPT_URL belum diisi. Buka file ini, isi dengan URL /exec Apps Script kamu.');
+  }
+  const res = await fetch(SCRIPT_URL, {
+    method: 'POST',
+    body: JSON.stringify({ fn, args, token: state.token })
+  });
+  if (!res.ok) throw new Error('Server merespons dengan status ' + res.status + '.');
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || 'Terjadi kesalahan.');
+  return data.result;
+}
+
+function toast(msg, type, ms){
+  document.querySelectorAll('.toast').forEach(t => t.remove());
+  const t = document.createElement('div');
+  t.className = 'toast ' + (type || '');
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), ms || 3200);
+}
+
+function beep(kind){
+  try{
+    window._actx = window._actx || new (window.AudioContext || window.webkitAudioContext)();
+    const o = _actx.createOscillator(), g = _actx.createGain();
+    o.connect(g); g.connect(_actx.destination);
+    o.type = 'sine'; o.frequency.value = kind==='ok' ? 880 : kind==='warn' ? 620 : 220;
+    g.gain.value = .08; o.start(); o.stop(_actx.currentTime + (kind==='ok' ? .12 : .3));
+  }catch(e){}
+  try{ if (navigator.vibrate) navigator.vibrate(kind==='ok' ? 60 : [80,60,80]); }catch(e){}
+}
+
+/* --------------------------- login & bootstrap --------------------------- */
+document.addEventListener('DOMContentLoaded', init);
+
+async function init(){
+  try{
+    const i = await call('getPublicInfo');
+    $('#login-school').textContent = i.nama;
+    $('#login-year').textContent = i.tahun ? 'Tahun ajaran ' + i.tahun : '';
+  }catch(e){ /* biarkan judul default jika gagal */ }
+
+  let t = null;
+  try{ t = localStorage.getItem('scan_token'); }catch(e){}
+  if (t){
+    state.token = t;
+    try{ await enter(); return; }catch(e){ state.token = null; }
+  }
+  $('#pin').focus();
+}
+
+$('#login-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const btn = $('#login-btn'); btn.disabled = true; btn.textContent = 'Memeriksa...';
+  $('#login-err').textContent = '';
+  try{
+    const r = await call('login', $('#pin').value);
+    if (!r.ok){ $('#login-err').textContent = r.msg; }
+    else {
+      state.token = r.token;
+      try{ localStorage.setItem('scan_token', r.token); }catch(e){}
+      $('#pin').value = '';
+      await enter();
+    }
+  }catch(err){ $('#login-err').textContent = err.message; }
+  btn.disabled = false; btn.textContent = 'Masuk';
+});
+
+async function enter(){
+  const boot = await call('getBootstrap');
+  state.boot = boot;
+  $('#brand-name').textContent = boot.school.nama || 'Scan Absensi';
+  $('#brand-role').textContent = boot.role === 'admin' ? 'Admin' : 'Petugas';
+  $('#sel-jenis').innerHTML = boot.jenis.map(j => `<option value="${j.key}">${esc(j.label)}</option>`).join('');
+  $('#sel-jenis').onchange = () => selectJenis($('#sel-jenis').value);
+  $('#login').hidden = true; $('#app').hidden = false;
+  selectJenis(boot.jenis[0].key);
+}
+
+$('#btn-logout').onclick = () => {
+  try{ localStorage.removeItem('scan_token'); }catch(e){}
+  stopCam();
+  state.token = null; state.boot = null;
+  $('#app').hidden = true; $('#login').hidden = false;
+  setTimeout(() => $('#pin').focus(), 50);
+};
+
+/* --------------------------------- scan --------------------------------- */
+let lastCode = '', lastAt = 0;
+
+function fillDetail(sel, jenisKey, allLabel){
+  const meta = state.boot.jenis.find(j => j.key === jenisKey);
+  if (!meta || !meta.detail) return false;
+  const list = meta.detail === 'Mapel' ? state.boot.mapel : state.boot.ekskul;
+  sel.innerHTML = `<option value="">${esc(allLabel)}</option>` + list.map(x => `<option>${esc(x)}</option>`).join('');
+  return true;
+}
+const detailLabel = k => (state.boot.jenis.find(j => j.key === k) || {}).detail === 'Mapel' ? 'Mata pelajaran' : 'Kegiatan ekstrakurikuler';
+
+function selectJenis(key){
+  state.jenis = key; state.detail = '';
+  $('#sel-jenis').value = key;
+  const has = fillDetail($('#sel-detail'), key, 'Pilih...');
+  $('#detail-wrap').hidden = !has;
+  if (has){
+    $('#detail-label').textContent = detailLabel(key);
+    $('#sel-detail').onchange = e => { state.detail = e.target.value; loadLog(); };
+  }
+  resetResult(); loadLog();
+}
+
+function resetResult(){
+  const r = $('#result'); r.className = 'result';
+  r.innerHTML = `<h3>Siap memindai</h3><p>Hasil scan akan tampil di sini.</p>`;
+}
+function showResult(kind, title, sub){
+  const r = $('#result');
+  r.className = 'result ' + kind;
+  r.innerHTML = `<h3>${esc(title)}</h3><p>${sub}</p>`;
+}
+
+async function handleCode(raw){
+  const code = String(raw || '').trim();
+  if (!code) return;
+  const now = Date.now();
+  if (code === lastCode && now - lastAt < 3000) return;
+  lastCode = code; lastAt = now;
+
+  const meta = state.boot.jenis.find(j => j.key === state.jenis);
+  if (meta.detail && !state.detail){
+    showResult('err', 'Pilih ' + detailLabel(state.jenis).toLowerCase(), 'Pilih dulu di bagian atas, lalu pindai ulang kartunya.');
+    beep('err'); return;
+  }
+  try{
+    const r = await call('scan', state.jenis, state.detail, code);
+    if (r.ok){
+      const late = r.status === 'Terlambat';
+      showResult(late ? 'late' : 'ok', r.siswa.nama,
+        `${esc(r.siswa.kelas)}, NIS ${esc(r.siswa.nis)}<br><span class="pill s-${esc(r.status)}" style="margin-top:6px">${esc(r.status)} pukul ${esc(r.jam)}</span>`);
+      beep(late ? 'warn' : 'ok');
+      loadLog();
+    } else if (r.code === 'DUP'){
+      showResult('dup', r.siswa.nama, `${esc(r.siswa.kelas)}<br>${esc(r.msg)}`);
+      beep('warn');
+    } else {
+      showResult('err', 'Tidak dikenali', esc(r.msg)); beep('err');
+    }
+  }catch(e){
+    showResult('err', 'Gagal menyimpan', esc(e.message)); beep('err');
+    lastCode = '';
+  }
+}
+
+async function loadLog(){
+  try{
+    const jenis = state.jenis, detail = state.detail;
+    const r = await call('todayLog', jenis, detail);
+    if (jenis !== state.jenis) return;
+    $('#log-count').textContent = r.total + ' siswa';
+    $('#log').innerHTML = r.rows.length ? r.rows.map(x => `
+      <li><div><b>${esc(x.nama)}</b><br><small>${esc(x.kelas)}</small></div>
+      <div style="text-align:right"><span class="pill s-${esc(x.status)}">${esc(x.status)}</span><br><small>${esc(x.jam)}</small></div></li>`).join('')
+      : '<li class="empty" style="display:block">Belum ada yang tercatat.</li>';
+  }catch(e){}
+}
+
+/* -------------------------------- kamera -------------------------------- */
+function updateCamUI(){
+  const b = $('#btn-cam');
+  b.textContent = state.camOn ? 'Matikan kamera' : 'Nyalakan kamera';
+  b.className = 'btn' + (state.camOn ? ' danger' : '');
+  $('#vf').classList.toggle('on', state.camOn);
+}
+
+function vfBox(){
+  const w = ($('#vf') && $('#vf').clientWidth) || 300;
+  const s = Math.max(160, Math.floor(Math.min(w * 0.7, 320)));
+  return { width:s, height:s };
+}
+
+function camErrorText(e){
+  const name = (e && e.name) || '';
+  const msg  = String((e && e.message) || e || '');
+  if (!window.isSecureContext)
+    return 'Halaman harus dibuka lewat HTTPS agar kamera dapat digunakan.';
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia)
+    return 'Browser ini tidak mendukung akses kamera. Gunakan Chrome, Edge, Safari, atau Firefox versi terbaru.';
+  if (name === 'NotAllowedError' || /Permission denied/i.test(msg))
+    return 'Akses kamera ditolak. Klik ikon kamera di address bar, pilih "Selalu izinkan", lalu muat ulang halaman.';
+  if (name === 'NotFoundError' || name === 'DevicesNotFoundError')
+    return 'Tidak ada kamera yang terdeteksi pada perangkat ini.';
+  if (name === 'NotReadableError' || name === 'TrackStartError')
+    return 'Kamera sedang dipakai aplikasi lain. Tutup aplikasi atau tab tersebut, lalu coba lagi.';
+  if (name === 'OverconstrainedError')
+    return 'Kamera yang diminta tidak tersedia.';
+  return 'Kamera tidak dapat dibuka. ' + (name ? name + ': ' : '') + msg;
+}
+
+async function startCam(){
+  if (state.camOn || state.camBusy) return;
+  if (!window.Html5Qrcode){ toast('Pustaka kamera belum termuat. Periksa koneksi internet.', 'err', 5000); return; }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ toast(camErrorText({}), 'err', 8000); return; }
+
+  state.camBusy = true;
+  const b = $('#btn-cam'); b.disabled = true;
+  try{
+    let probe;
+    try{
+      probe = await navigator.mediaDevices.getUserMedia({ video:{ facingMode: state.facing } });
+    }catch(e1){
+      if (e1 && (e1.name === 'OverconstrainedError' || e1.name === 'NotFoundError'))
+        probe = await navigator.mediaDevices.getUserMedia({ video:true });
+      else throw e1;
+    }
+    probe.getTracks().forEach(t => t.stop());
+
+    if (!state.cam) state.cam = new Html5Qrcode('reader', { verbose:false });
+    const cfg = { fps:10, qrbox: vfBox(), aspectRatio:1 };
+    try{
+      await state.cam.start({ facingMode: state.facing }, cfg, txt => handleCode(txt), () => {});
+    }catch(e2){
+      const cams = await Html5Qrcode.getCameras();
+      if (!cams || !cams.length) throw e2;
+      const pick = cams.find(c => /back|rear|belakang|environment/i.test(c.label || '')) || cams[cams.length - 1];
+      await state.cam.start(pick.id, cfg, txt => handleCode(txt), () => {});
+    }
+    state.camOn = true;
+    updateCamUI();
+  }catch(e){
+    toast(camErrorText(e), 'err', 9000);
+  }
+  state.camBusy = false;
+  b.disabled = false;
+}
+
+async function stopCam(){
+  if (!state.cam){ state.camOn = false; try{ updateCamUI(); }catch(e){} return; }
+  try{ await state.cam.stop(); }catch(e){}
+  try{ state.cam.clear(); }catch(e){}
+  state.camOn = false;
+  try{ updateCamUI(); }catch(e){}
+}
+
+$('#btn-cam').onclick = () => state.camOn ? stopCam() : startCam();
+
+$('#scan-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter'){ e.preventDefault(); const v = e.target.value; e.target.value = ''; lastCode = ''; handleCode(v); }
+});
+
+$('#file-qr').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try{
+    if (!window.Html5Qrcode) throw new Error('Pustaka QR belum termuat.');
+    if (!state.camFile) state.camFile = new Html5Qrcode('reader-file', { verbose:false });
+    const txt = await state.camFile.scanFile(f, false);
+    lastCode = ''; handleCode(txt);
+  }catch(err){
+    toast('QR pada foto tidak terbaca. Pastikan QR terlihat jelas dan tidak terpotong.', 'err', 5000);
+  }
+  e.target.value = '';
+};
+</script>
+</body>
+</html>
