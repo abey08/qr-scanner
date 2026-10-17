@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#073632">
+<title>Scan Absensi QR</title>
+<!-- Logo sekolah: file logo.png harus berada di folder yang sama dengan index.html -->
+<link rel="icon" type="image/png" href="logo.png">
+<link rel="apple-touch-icon" href="logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<style>
+:root{
+  --pine:#0B4F4A; --pine-d:#073632; --pine-l:#E1EFED; --saffron:#F2A900;
+  --bg:#EDF1F0; --ink:#101B1A; --muted:#566765; --line:#D6E0DE;
+  --ok:#12805C; --ok-bg:#DCF3E9; --warn:#8F5A00; --warn-bg:#FFEFC7;
+  --info:#1F5FA8; --info-bg:#DDEAFA; --bad:#B42318; --bad-bg:#FDE2DF;
+  --sick:#6941B8; --sick-bg:#EAE2FA;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:'Plus Jakarta Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--ink);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+button,input,select{font:inherit;color:inherit}
+[hidden]{display:none!important}
+svg{display:block}
+h1,h2,h3{margin:0;line-height:1.25}
+:focus-visible{outline:3px solid var(--saffron);outline-offset:2px}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid transparent;background:var(--pine);color:#fff;padding:12px 16px;border-radius:12px;font-weight:700;cursor:pointer;transition:background .15s}
+.btn:hover{background:var(--pine-d)}
+.btn:disabled{opacity:.55;cursor:not-allowed}
+.btn svg{width:18px;height:18px;flex:none}
+.btn.danger{background:var(--bad)}
+.btn.ghost{background:#fff;color:var(--pine);border-color:var(--line)}
+.btn.ghost:hover{background:var(--pine-l)}
+.btn.block{width:100%}
+.input{width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:#fff;transition:border-color .15s,box-shadow .15s}
+.input:focus{outline:none;border-color:var(--pine);box-shadow:0 0 0 3px rgba(11,79,74,.15)}
+.field{display:flex;flex-direction:column;gap:6px}
+.field>label{font-size:13px;font-weight:700}
+.hint{color:var(--muted);font-size:13px}
+.mark{width:42px;height:42px;border-radius:12px;background:var(--saffron);display:grid;place-items:center;color:var(--pine-d);flex:none}
+.mark svg{width:24px;height:24px}
+
+/* logo sekolah */
+.logo{width:52px;height:52px;object-fit:contain;flex:none;display:block}
+
+/* ---------- login ---------- */
+#login{min-height:100vh;display:grid;grid-template-columns:1fr;place-items:center;padding:20px;background:var(--pine-d);position:relative;overflow:hidden}
+#login::before{content:"";position:absolute;right:-110px;bottom:-110px;width:420px;height:420px;border-radius:28px;transform:rotate(12deg);opacity:.12;
+  background:conic-gradient(from 0deg,var(--saffron) 0 25%,transparent 0 50%,var(--saffron) 0 75%,transparent 0) 0 0/60px 60px}
+.login-card{position:relative;background:#fff;border-radius:22px;padding:28px;width:100%;max-width:400px;box-shadow:0 24px 60px rgba(0,0,0,.25)}
+.login-card .brand{display:flex;gap:12px;align-items:center;margin-bottom:22px}
+.login-card h1{font-size:18px;font-weight:800}
+.login-card .sub{color:var(--muted);font-size:13px}
+.login-card h2{font-size:22px;font-weight:800;margin-bottom:4px}
+.pin-row{position:relative}
+.pin-row .input{padding-right:84px}
+.pin-row button{position:absolute;right:6px;top:6px;bottom:6px;border:0;background:var(--pine-l);color:var(--pine-d);border-radius:8px;padding:0 12px;font-weight:700;cursor:pointer}
+.err{color:var(--bad);font-weight:600;min-height:22px;margin:8px 0}
+
+/* ---------- header ---------- */
+.top{background:var(--pine-d);color:#fff;padding:12px 16px;padding-top:calc(12px + env(safe-area-inset-top,0px));display:flex;justify-content:space-between;align-items:center;gap:12px;position:sticky;top:0;z-index:20}
+.top .brand{display:flex;gap:12px;align-items:center;min-width:0}
+.top .logo{width:42px;height:42px}
+.top b{display:block;font-size:15px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top small{display:block;color:#8fb3ae;font-size:12px}
+.top .right{display:flex;align-items:center;gap:10px;flex:none}
+.clock{text-align:right;line-height:1.2;font-variant-numeric:tabular-nums}
+.clock b{font-size:16px}
+.clock small{font-size:11px}
+.top .btn{padding:8px 12px;background:rgba(255,255,255,.1);border-radius:10px;font-size:13px}
+.top .btn:hover{background:rgba(255,255,255,.2)}
+.top .btn.off{opacity:.65}
+
+/* ---------- layout ---------- */
+.wrap{max-width:1020px;margin:0 auto;padding:16px 16px 40px}
+.banner{background:var(--warn-bg);border:1px solid #E0B34A;color:#5E3B00;border-radius:14px;padding:12px 14px;margin-bottom:14px}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 10px;margin:0 -16px 6px;padding-left:16px;padding-right:16px;scrollbar-width:none;scroll-snap-type:x proximity}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:99px;border:1.5px solid var(--line);background:#fff;font-weight:600;cursor:pointer;scroll-snap-align:start;white-space:nowrap;transition:background .15s,border-color .15s,color .15s}
+.chip svg{width:18px;height:18px}
+.chip:hover{border-color:var(--pine)}
+.chip[aria-pressed=true]{background:var(--pine);border-color:var(--pine);color:#fff}
+.detail{margin-bottom:14px}
+.grid{display:grid;grid-template-columns:1fr;gap:16px;align-items:start}
+
+/* ---------- kamera ---------- */
+.vf{position:relative;width:100%;aspect-ratio:1/1;max-height:50vh;background:#08201D;border-radius:22px;overflow:hidden;display:grid;place-items:center}
+#reader{position:absolute;inset:0;border:0!important;padding:0!important;min-height:0!important}
+#reader video{width:100%!important;height:100%!important;object-fit:cover}
+#reader img{display:none}
+.vf .c{position:absolute;width:44px;height:44px;border:5px solid var(--saffron);pointer-events:none;z-index:2}
+.vf .c1{top:13%;left:13%;border-right:0;border-bottom:0;border-top-left-radius:14px}
+.vf .c2{top:13%;right:13%;border-left:0;border-bottom:0;border-top-right-radius:14px}
+.vf .c3{bottom:13%;left:13%;border-right:0;border-top:0;border-bottom-left-radius:14px}
+.vf .c4{bottom:13%;right:13%;border-left:0;border-top:0;border-bottom-right-radius:14px}
+.vf .idle{position:relative;z-index:1;color:#9dbdb8;text-align:center;padding:24px;max-width:26ch;font-size:14px}
+.vf .idle svg{width:44px;height:44px;margin:0 auto 10px;color:#5b8a84}
+.vf.on .idle{display:none}
+.tools{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.tools .btn{flex:1 1 auto}
+.tools .grow{flex:2 1 160px}
+.nis{margin-top:14px}
+.nis .row{display:flex;gap:8px}
+
+/* ---------- hasil ---------- */
+.result{border:2px solid var(--line);background:#fff;border-radius:22px;padding:18px;display:flex;gap:14px;align-items:center;min-height:112px;transition:background .2s,border-color .2s}
+.result .avatar{width:58px;height:58px;border-radius:50%;background:var(--line);color:var(--muted);display:grid;place-items:center;font-weight:800;font-size:20px;flex:none}
+.result .avatar svg{width:26px;height:26px}
+.result h3{font-size:20px}
+.result p{margin:2px 0 0;color:var(--muted);font-size:14px}
+.result.ok{background:var(--ok-bg);border-color:var(--ok)} .result.ok .avatar{background:var(--ok);color:#fff}
+.result.late{background:var(--warn-bg);border-color:#D89400} .result.late .avatar{background:#C58100;color:#fff}
+.result.dup{background:var(--info-bg);border-color:var(--info)} .result.dup .avatar{background:var(--info);color:#fff}
+.result.err{background:var(--bad-bg);border-color:var(--bad)} .result.err .avatar{background:var(--bad);color:#fff}
+.result.pop{animation:pop .25s ease-out}
+@keyframes pop{from{transform:scale(.97)}to{transform:scale(1)}}
+.flash{position:fixed;inset:0;pointer-events:none;z-index:40;opacity:0}
+.flash.go{animation:flash .55s ease-out}
+@keyframes flash{0%{opacity:.4}100%{opacity:0}}
+.pill{display:inline-block;padding:2px 10px;border-radius:99px;font-size:12px;font-weight:700;white-space:nowrap}
+.s-Hadir{background:var(--ok-bg);color:var(--ok)}
+.s-Terlambat{background:var(--warn-bg);color:var(--warn)}
+.s-Izin{background:var(--info-bg);color:var(--info)}
+.s-Sakit{background:var(--sick-bg);color:var(--sick)}
+.s-Alpa{background:var(--bad-bg);color:var(--bad)}
+
+/* ---------- pop up hasil scan ---------- */
+.pop-bg{position:fixed;inset:0;background:rgba(7,54,50,.6);display:grid;place-items:center;padding:20px;z-index:100;animation:fadein .15s ease-out}
+.pop-card{width:100%;max-width:400px;background:#fff;border-radius:24px;padding:26px 22px 20px;text-align:center;border-top:10px solid var(--ok);box-shadow:0 24px 60px rgba(0,0,0,.35);animation:popin .2s ease-out}
+.pop-card.late{border-top-color:#D89400}
+.pop-card.dup{border-top-color:var(--info)}
+.pop-card.err{border-top-color:var(--bad)}
+.pop-ico{width:66px;height:66px;border-radius:50%;margin:0 auto 10px;display:grid;place-items:center;font-size:36px;font-weight:800;color:#fff;background:var(--ok)}
+.pop-card.late .pop-ico{background:#C58100}
+.pop-card.dup .pop-ico{background:var(--info)}
+.pop-card.err .pop-ico{background:var(--bad)}
+.pop-title{font-size:13px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--ok)}
+.pop-card.late .pop-title{color:var(--warn)}
+.pop-card.dup .pop-title{color:var(--info)}
+.pop-card.err .pop-title{color:var(--bad)}
+.pop-name{font-size:25px;font-weight:800;line-height:1.25;margin:6px 0 14px;word-break:break-word}
+.pop-rows{text-align:left;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.pop-row{display:flex;justify-content:space-between;gap:12px;padding:10px 14px;border-bottom:1px solid var(--line);font-size:14px}
+.pop-row:last-child{border-bottom:0}
+.pop-row span{color:var(--muted);flex:none}
+.pop-row b{text-align:right}
+.pop-msg{color:var(--muted);font-size:15px;margin:10px 0 0}
+.pop-hint{margin-top:14px;font-size:12px;color:var(--muted)}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+@keyframes popin{from{transform:scale(.92);opacity:0}to{transform:scale(1);opacity:1}}
+
+/* ---------- daftar ---------- */
+.panel{background:#fff;border:1px solid var(--line);border-radius:18px;padding:16px 18px;margin-top:14px}
+.panel-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+.panel-head h3{font-size:16px}
+.log{list-style:none;margin:0;padding:0}
+.log li{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.log li:last-child{border-bottom:0}
+.log b{display:block}
+.log small{color:var(--muted)}
+.log .r{text-align:right;flex:none}
+.log time{display:block;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.empty{text-align:center;color:var(--muted);padding:18px 8px}
+
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--pine-d);color:#fff;padding:12px 18px;border-radius:14px;max-width:min(92vw,520px);font-weight:600;z-index:120;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+.toast.err{background:var(--bad)}
+.toast.ok{background:var(--ok)}
+
+@media (min-width:900px){
+  .grid{grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:22px}
+  .vf{max-height:none}
+  .chips{margin:0 0 6px;padding-left:2px;padding-right:2px;flex-wrap:wrap;overflow:visible}
+  .panel{margin-top:16px}
+  .side .result{margin-top:0}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     Ganti URL ini bila deployment Apps Script berubah.
+     Harus URL /exec dari deployment yang sudah memuat Api.gs.
+     ============================================================ -->
+<script>
+  const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzFHqfbChpGXPkBD4MbqUYAnQ66r9eWdsv7iiCYaAqIgNuxuYMrQp1miWEJA0JhxL5ctQ/exec';
+</script>
+
+<!-- ================= LOGIN ================= -->
+<div id="login">
+  <div class="login-card">
+    <div class="brand">
+      <img class="logo" src="logo.png" alt="Logo sekolah" onerror="this.style.display='none'">
+      <div><h1 id="login-school">Scan Absensi QR</h1><div class="sub" id="login-year">Halaman petugas scan</div></div>
+    </div>
+    <h2>Masuk</h2>
+    <p class="hint" style="margin:0 0 16px">Masukkan PIN petugas atau PIN admin untuk mulai memindai.</p>
+    <form id="login-form">
+      <div class="field">
+        <label for="pin">PIN</label>
+        <div class="pin-row">
+          <input class="input" id="pin" type="password" placeholder="Masukkan PIN" autocomplete="off" required>
+          <button type="button" id="pin-toggle" aria-label="Tampilkan atau sembunyikan PIN">Lihat</button>
+        </div>
+      </div>
+      <div class="err" id="login-err" role="alert"></div>
+      <button class="btn block" id="login-btn" type="submit">Masuk</button>
+    </form>
+  </div>
+</div>
+
+<!-- ================= APLIKASI ================= -->
+<div id="app" hidden>
+  <header class="top">
+    <div class="brand">
+      <img class="logo" src="logo.png" alt="Logo sekolah" onerror="this.style.display='none'">
+      <div style="min-width:0"><b id="brand-name">Scan Absensi</b><small id="brand-role"></small></div>
+    </div>
+    <div class="right">
+      <div class="clock"><b id="clock-time">--.--</b><small id="clock-date"></small></div>
+      <button class="btn" id="btn-voice" type="button" title="Nyalakan atau matikan suara">Suara</button>
+      <button class="btn" id="btn-logout" type="button">Keluar</button>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="banner" id="banner" hidden></div>
+
+    <nav class="chips" id="chips" aria-label="Jenis absen"></nav>
+
+    <div class="field detail" id="detail-wrap" hidden>
+      <label for="sel-detail" id="detail-label">Mata pelajaran</label>
+      <select class="input" id="sel-detail"></select>
+    </div>
+
+    <div class="grid">
+      <section>
+        <div class="vf" id="vf">
+          <div id="reader"></div>
+          <span class="c c1"></span><span class="c c2"></span><span class="c c3"></span><span class="c c4"></span>
+          <div class="idle"><div data-ico="qr"></div>Kamera belum aktif. Tekan tombol di bawah untuk mulai memindai.</div>
+        </div>
+        <div class="tools">
+          <button class="btn grow" id="btn-cam" type="button"></button>
+          <button class="btn ghost" id="btn-flip" type="button" hidden>Ganti kamera</button>
+          <label class="btn ghost" for="file-qr" style="margin:0">Dari foto</label>
+          <input type="file" id="file-qr" accept="image/*" hidden>
+        </div>
+        <div id="reader-file" aria-hidden="true" style="position:absolute;left:-10000px;top:0;width:1px;height:1px;overflow:hidden"></div>
+
+        <div class="nis field">
+          <label for="scan-input">Alat scanner atau ketik NIS</label>
+          <div class="row">
+            <input class="input" id="scan-input" placeholder="Ketik NIS lalu tekan Enter" autocomplete="off" inputmode="text">
+            <button class="btn" id="btn-nis" type="button">Catat</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="side">
+        <div class="result" id="result" aria-live="polite"></div>
+        <div class="panel">
+          <div class="panel-head"><h3>Tercatat hari ini</h3><span class="hint" id="log-count"></span></div>
+          <ul class="log" id="log"></ul>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<div class="flash" id="flash"></div>
+
+<!-- Pop up hasil scan -->
+<div class="pop-bg" id="pop" hidden>
+  <div class="pop-card" id="pop-card" role="alertdialog" aria-live="assertive">
+    <div class="pop-ico" id="pop-ico"></div>
+    <div class="pop-title" id="pop-title"></div>
+    <div class="pop-name" id="pop-name"></div>
+    <div id="pop-body"></div>
+    <div class="pop-hint">Ketuk di mana saja untuk menutup</div>
+  </div>
+</div>
+
+<script>
+/* =====================================================================
+ *  UTILITAS
+ * ===================================================================== */
+const ICON = {
+  login:'<path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/>',
+  logout:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/>',
+  book:'<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
+  star:'<path d="M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"/>',
+  sunrise:'<path d="M17 18a5 5 0 0 0-10 0"/><path d="M12 2v7"/><path d="M4.2 10.2l1.4 1.4"/><path d="M1 18h2"/><path d="M21 18h2"/><path d="M18.4 11.6l1.4-1.4"/><path d="M23 22H1"/><path d="M8 6l4-4 4 4"/>',
+  sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+  flag:'<path d="M4 22V4"/><path d="M4 4h13l-2 4 2 4H4"/>',
+  qr:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v3M14 20h3M20 20h1"/>',
+  camera:'<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>',
+  stop:'<rect x="6" y="6" width="12" height="12" rx="2"/>'
+};
+const JICON = {KELAS_MASUK:'login',KELAS_PULANG:'logout',MAPEL:'book',EKSKUL:'star',DUHA:'sunrise',DZUHUR:'sun',UPACARA:'flag'};
+const ico = n => `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICON[n]||''}</svg>`;
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad = n => String(n).padStart(2, '0');
+const initials = n => String(n||'?').trim().split(/\s+/).slice(0,2).map(w => w[0]).join('').toUpperCase();
+
+const state = { token:null, boot:null, jenis:null, detail:'', cam:null, camFile:null, camOn:false, camBusy:false, facing:'environment', logTimer:null, voiceOn:true };
+
+/* ---------------------------------------------------------------------
+ * Panggilan ke Apps Script lewat doPost().
+ * Body dikirim sebagai string biasa tanpa header kustom, supaya browser
+ * tidak mengirim preflight OPTIONS (Apps Script tidak menjawabnya).
+ * ------------------------------------------------------------------- */
+async function call(fn, ...args){
+  let res;
+  try{
+    res = await fetch(SCRIPT_URL, { method:'POST', body: JSON.stringify({ fn, args, token: state.token }) });
+  }catch(e){
+    throw new Error('Tidak dapat terhubung ke server absensi. Periksa koneksi internet, lalu pastikan URL Apps Script benar dan deployment sudah diperbarui.');
+  }
+  if (!res.ok) throw new Error('Server merespons dengan status ' + res.status + '.');
+  let data;
+  try{ data = await res.json(); }
+  catch(e){ throw new Error('Balasan server tidak dikenali. Pastikan file Api.gs sudah ditambahkan dan deployment memakai versi terbaru.'); }
+  if (!data.ok){
+    if (/Sesi berakhir/.test(data.error || '')) logout(true);
+    throw new Error(data.error || 'Terjadi kesalahan.');
+  }
+  return data.result;
+}
+
+function toast(msg, type, ms){
+  $$('.toast').forEach(t => t.remove());
+  const t = document.createElement('div');
+  t.className = 'toast ' + (type || '');
+  t.setAttribute('role', 'status');
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), ms || 3200);
+}
+
+function beep(kind){
+  try{ if (navigator.vibrate) navigator.vibrate(kind==='ok' ? 60 : [80,60,80]); }catch(e){}
+  if (!state.voiceOn) return;
+  try{
+    window._actx = window._actx || new (window.AudioContext || window.webkitAudioContext)();
+    if (_actx.state === 'suspended') _actx.resume();
+    const o = _actx.createOscillator(), g = _actx.createGain();
+    o.connect(g); g.connect(_actx.destination);
+    o.type = 'sine'; o.frequency.value = kind==='ok' ? 880 : kind==='warn' ? 620 : 220;
+    g.gain.value = .08; o.start(); o.stop(_actx.currentTime + (kind==='ok' ? .12 : .3));
+  }catch(e){}
+}
+
+function flash(color){
+  const f = $('#flash'); f.style.background = color;
+  f.classList.remove('go'); void f.offsetWidth; f.classList.add('go');
+}
+
+/* =====================================================================
+ *  SUARA UCAPAN (bahasa Indonesia)
+ * ===================================================================== */
+try{ state.voiceOn = localStorage.getItem('scan_voice') !== 'off'; }catch(e){}
+
+function updateVoiceUI(){
+  const b = $('#btn-voice');
+  b.textContent = state.voiceOn ? 'Suara: Nyala' : 'Suara: Mati';
+  b.classList.toggle('off', !state.voiceOn);
+  b.setAttribute('aria-pressed', String(state.voiceOn));
+}
+
+// Browser mewajibkan interaksi pengguna sebelum suara boleh diputar
+function unlockAudio(){
+  try{
+    window._actx = window._actx || new (window.AudioContext || window.webkitAudioContext)();
+    if (_actx.state === 'suspended') _actx.resume();
+  }catch(e){}
+  try{ if (window.speechSynthesis) speechSynthesis.getVoices(); }catch(e){}
+}
+document.addEventListener('pointerdown', unlockAudio, { once:true });
+document.addEventListener('keydown', unlockAudio, { once:true });
+if (window.speechSynthesis) speechSynthesis.getVoices();
+
+function speak(text){
+  if (!state.voiceOn || !window.speechSynthesis || !text) return;
+  try{
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'id-ID';
+    u.rate = 0.95;
+    const v = speechSynthesis.getVoices().find(v => /^id[-_]/i.test(v.lang) || /indonesia/i.test(v.name));
+    if (v) u.voice = v;
+    speechSynthesis.speak(u);
+  }catch(e){}
+}
+
+// Kalimat ucapan sesuai jenis absen
+function greeting(jenisKey, nama, late){
+  const meta = (state.boot && state.boot.jenis.find(j => j.key === jenisKey)) || {};
+  const l = (String(jenisKey) + ' ' + (meta.label || '')).toLowerCase();
+  const n = nama;
+  if (/pulang/.test(l))                               return `Terima kasih, ${n}. Hati-hati di jalan.`;
+  if (/dhuha|duha|dzuhur|zuhur|sholat|salat/.test(l)) return `Terima kasih, ${n}. Semoga ibadahnya diterima.`;
+  if (/upacara/.test(l))                              return `Selamat pagi, ${n}. Silakan masuk barisan.`;
+  if (/ekstra|ekskul/.test(l))                        return `Selamat datang, ${n}. Selamat berlatih.`;
+  if (/mapel|pelajaran/.test(l))                      return `${n}, silakan masuk. Selamat belajar.`;
+  return late ? `Selamat datang, ${n}. Anda terlambat, silakan masuk.`
+              : `Selamat datang, ${n}. Selamat belajar.`;
+}
+
+/* =====================================================================
+ *  POP UP HASIL SCAN
+ * ===================================================================== */
+let popTimer = null;
+function hidePop(){ clearTimeout(popTimer); $('#pop').hidden = true; }
+$('#pop').addEventListener('click', hidePop);
+
+function showPop(kind, o){
+  const icons = { ok:'&#10003;', late:'!', dup:'i', err:'&#10005;' };
+  $('#pop-card').className = 'pop-card ' + kind;
+  $('#pop-ico').innerHTML = icons[kind] || '';
+  $('#pop-title').textContent = o.title || '';
+  $('#pop-name').textContent = o.nama || '';
+  let body = '';
+  if (o.rows && o.rows.length){
+    body += '<div class="pop-rows">' + o.rows.map(r =>
+      `<div class="pop-row"><span>${esc(r[0])}</span><b>${esc(r[1])}</b></div>`).join('') + '</div>';
+  }
+  if (o.msg) body += `<p class="pop-msg">${esc(o.msg)}</p>`;
+  $('#pop-body').innerHTML = body;
+  $('#pop').hidden = false;
+  clearTimeout(popTimer);
+  popTimer = setTimeout(hidePop, o.ms || 3500);
+}
+
+// Keterangan absen, misalnya "Kelas masuk" atau "Mata pelajaran - Matematika"
+function keterangan(){
+  const meta = state.boot.jenis.find(j => j.key === state.jenis) || {};
+  return (meta.label || '') + (state.detail ? ' - ' + state.detail : '');
+}
+
+/* =====================================================================
+ *  LOGIN & INISIALISASI
+ * ===================================================================== */
+document.addEventListener('DOMContentLoaded', init);
+
+async function init(){
+  $$('[data-ico]').forEach(el => el.innerHTML = ico(el.dataset.ico));
+  startClock();
+  updateVoiceUI();
+  $('#btn-voice').onclick = () => {
+    state.voiceOn = !state.voiceOn;
+    try{ localStorage.setItem('scan_voice', state.voiceOn ? 'on' : 'off'); }catch(e){}
+    if (!state.voiceOn && window.speechSynthesis) speechSynthesis.cancel();
+    updateVoiceUI();
+    if (state.voiceOn) speak('Suara dinyalakan.');
+  };
+  $('#pin-toggle').onclick = () => {
+    const p = $('#pin'), show = p.type === 'password';
+    p.type = show ? 'text' : 'password';
+    $('#pin-toggle').textContent = show ? 'Sembunyikan' : 'Lihat';
+  };
+
+  call('getPublicInfo').then(i => {
+    $('#login-school').textContent = i.nama;
+    $('#login-year').textContent = i.tahun ? 'Tahun ajaran ' + i.tahun : 'Halaman petugas scan';
+  }).catch(e => { $('#login-err').textContent = e.message; });
+
+  let t = null;
+  try{ t = localStorage.getItem('scan_token'); }catch(e){}
+  if (t){
+    state.token = t;
+    try{ await enter(); return; }catch(e){ state.token = null; }
+  }
+  $('#pin').focus();
+}
+
+$('#login-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const btn = $('#login-btn'); btn.disabled = true; btn.textContent = 'Memeriksa...';
+  $('#login-err').textContent = '';
+  try{
+    const r = await call('login', $('#pin').value);
+    if (!r.ok){ $('#login-err').textContent = r.msg; }
+    else {
+      state.token = r.token;
+      try{ localStorage.setItem('scan_token', r.token); }catch(e){}
+      $('#pin').value = '';
+      await enter();
+    }
+  }catch(err){ $('#login-err').textContent = err.message; }
+  btn.disabled = false; btn.textContent = 'Masuk';
+});
+
+async function enter(){
+  const boot = await call('getBootstrap');
+  state.boot = boot;
+  $('#brand-name').textContent = boot.school.nama || 'Scan Absensi';
+  $('#brand-role').textContent = boot.role === 'admin' ? 'Admin' : 'Petugas';
+  $('#chips').innerHTML = boot.jenis.map(j =>
+    `<button class="chip" type="button" data-k="${j.key}" aria-pressed="false">${ico(JICON[j.key])}<span>${esc(j.label)}</span></button>`).join('');
+  $('#chips').onclick = e => { const c = e.target.closest('.chip'); if (c) selectJenis(c.dataset.k); };
+  $('#login').hidden = true; $('#app').hidden = false;
+  selectJenis(boot.jenis[0].key);
+  updateCamUI();
+  checkLibur();
+  clearInterval(state.logTimer);
+  state.logTimer = setInterval(() => { if (!document.hidden && state.boot) loadLog(); }, 20000);
+}
+
+function logout(silent){
+  try{ localStorage.removeItem('scan_token'); }catch(e){}
+  stopCam(); hidePop();
+  clearInterval(state.logTimer);
+  state.token = null; state.boot = null;
+  $('#app').hidden = true; $('#login').hidden = false;
+  $('#login-err').textContent = silent === true ? 'Sesi berakhir. Silakan masuk kembali.' : '';
+  setTimeout(() => $('#pin').focus(), 50);
+}
+$('#btn-logout').onclick = () => logout();
+
+function startClock(){
+  const tick = () => {
+    const d = new Date();
+    $('#clock-time').textContent = `${pad(d.getHours())}.${pad(d.getMinutes())}`;
+    $('#clock-date').textContent = d.toLocaleDateString('id-ID', {weekday:'short', day:'numeric', month:'short'});
+  };
+  tick(); setInterval(tick, 15000);
+}
+
+async function checkLibur(){
+  const b = $('#banner'); b.hidden = true;
+  try{
+    const r = await call('cekLibur', '');
+    if (r.libur){
+      b.innerHTML = `<b>Hari ini libur: ${esc(r.ket)}.</b> Absensi ditutup, scan tidak akan diterima.`;
+      b.hidden = false;
+    }
+  }catch(e){}
+}
+
+/* =====================================================================
+ *  PILIH JENIS ABSEN
+ * ===================================================================== */
+let lastCode = '', lastAt = 0;
+
+function fillDetail(sel, jenisKey, allLabel){
+  const meta = state.boot.jenis.find(j => j.key === jenisKey);
+  if (!meta || !meta.detail) return false;
+  const list = meta.detail === 'Mapel' ? state.boot.mapel : state.boot.ekskul;
+  sel.innerHTML = `<option value="">${esc(allLabel)}</option>` + list.map(x => `<option>${esc(x)}</option>`).join('');
+  return true;
+}
+const detailLabel = k => (state.boot.jenis.find(j => j.key === k) || {}).detail === 'Mapel' ? 'Mata pelajaran' : 'Kegiatan ekstrakurikuler';
+
+function selectJenis(key){
+  state.jenis = key; state.detail = '';
+  $$('#chips .chip').forEach(c => c.setAttribute('aria-pressed', String(c.dataset.k === key)));
+  const active = $('#chips .chip[aria-pressed=true]');
+  if (active && active.scrollIntoView) active.scrollIntoView({inline:'center', block:'nearest', behavior:'smooth'});
+  const has = fillDetail($('#sel-detail'), key, 'Pilih...');
+  $('#detail-wrap').hidden = !has;
+  if (has){
+    $('#detail-label').textContent = detailLabel(key);
+    $('#sel-detail').onchange = e => { state.detail = e.target.value; loadLog(); };
+  }
+  resetResult(); loadLog();
+}
+
+/* =====================================================================
+ *  HASIL SCAN
+ * ===================================================================== */
+function resetResult(){
+  const r = $('#result'); r.className = 'result';
+  r.innerHTML = `<div class="avatar">${ico('qr')}</div><div><h3>Siap memindai</h3><p>Hasil scan akan tampil di sini.</p></div>`;
+}
+function showResult(kind, title, sub, name){
+  const r = $('#result');
+  r.className = 'result ' + kind + ' pop';
+  r.innerHTML = `<div class="avatar">${name ? esc(initials(name)) : '!'}</div><div><h3>${esc(title)}</h3><p>${sub}</p></div>`;
+  const col = {ok:'#12805C', late:'#D89400', dup:'#1F5FA8', err:'#B42318'}[kind];
+  flash(col);
+}
+
+async function handleCode(raw){
+  const code = String(raw || '').trim();
+  if (!code) return;
+  const now = Date.now();
+  if (code === lastCode && now - lastAt < 3000) return;
+  lastCode = code; lastAt = now;
+
+  const meta = state.boot.jenis.find(j => j.key === state.jenis);
+  if (meta.detail && !state.detail){
+    const lbl = detailLabel(state.jenis).toLowerCase();
+    showResult('err', 'Pilih ' + lbl, 'Pilih dulu di bagian atas, lalu pindai ulang kartunya.');
+    showPop('err', { title:'Belum bisa dicatat', nama:'Pilih ' + lbl, msg:'Pilih dulu di bagian atas, lalu pindai ulang kartunya.' });
+    beep('err'); speak('Pilih ' + lbl + ' terlebih dahulu.');
+    lastCode = ''; return;
+  }
+  try{
+    const r = await call('scan', state.jenis, state.detail, code);
+    if (r.ok){
+      const late = r.status === 'Terlambat';
+      showResult(late ? 'late' : 'ok', r.siswa.nama,
+        `${esc(r.siswa.kelas)}, NIS ${esc(r.siswa.nis)}<br><span class="pill s-${esc(r.status)}" style="margin-top:6px">${esc(r.status)} pukul ${esc(r.jam)}</span>`, r.siswa.nama);
+      showPop(late ? 'late' : 'ok', {
+        title: late ? 'Absen tercatat - Terlambat' : 'Absen berhasil',
+        nama: r.siswa.nama,
+        rows: [
+          ['NIS', r.siswa.nis],
+          ['Kelas', r.siswa.kelas],
+          ['Keterangan', keterangan()],
+          ['Status', r.status + ' pukul ' + r.jam]
+        ]
+      });
+      beep(late ? 'warn' : 'ok');
+      speak(greeting(state.jenis, r.siswa.nama, late));
+      loadLog();
+    } else if (r.code === 'DUP'){
+      showResult('dup', r.siswa.nama, `${esc(r.siswa.kelas)}<br>${esc(r.msg)}`, r.siswa.nama);
+      showPop('dup', {
+        title: 'Sudah tercatat',
+        nama: r.siswa.nama,
+        rows: [
+          ['NIS', r.siswa.nis || '-'],
+          ['Kelas', r.siswa.kelas],
+          ['Keterangan', keterangan()]
+        ],
+        msg: r.msg
+      });
+      beep('warn'); speak('Sudah tercatat.');
+    } else if (r.code === 'LIBUR'){
+      showResult('err', 'Absensi ditutup', esc(r.msg));
+      showPop('err', { title:'Absensi ditutup', nama:'Hari libur', msg:r.msg });
+      beep('warn'); speak('Absensi ditutup. Hari ini libur.');
+    } else {
+      showResult('err', 'Tidak dikenali', esc(r.msg));
+      showPop('err', { title:'Gagal', nama:'Tidak dikenali', msg:r.msg });
+      beep('err'); speak('Kode tidak dikenali.');
+    }
+  }catch(e){
+    showResult('err', 'Gagal menyimpan', esc(e.message));
+    showPop('err', { title:'Gagal menyimpan', nama:'Coba lagi', msg:e.message, ms:4500 });
+    beep('err'); speak('Gagal menyimpan. Silakan coba lagi.');
+    lastCode = '';
+  }
+}
+
+async function loadLog(){
+  try{
+    const jenis = state.jenis, detail = state.detail;
+    const meta = state.boot.jenis.find(j => j.key === jenis);
+    if (meta.detail && !detail){
+      $('#log-count').textContent = '';
+      $('#log').innerHTML = `<li class="empty" style="display:block">Pilih ${esc(detailLabel(jenis).toLowerCase())} untuk melihat daftar.</li>`;
+      return;
+    }
+    const r = await call('todayLog', jenis, detail);
+    if (jenis !== state.jenis) return;
+    $('#log-count').textContent = r.total + ' siswa';
+    $('#log').innerHTML = r.rows.length ? r.rows.map(x => `
+      <li><div><b>${esc(x.nama)}</b><small>${esc(x.kelas)}</small></div>
+      <div class="r"><span class="pill s-${esc(x.status)}">${esc(x.status)}</span><time>${esc(x.jam)}</time></div></li>`).join('')
+      : '<li class="empty" style="display:block">Belum ada yang tercatat.</li>';
+  }catch(e){}
+}
+
+/* =====================================================================
+ *  KAMERA
+ * ===================================================================== */
+function updateCamUI(){
+  const b = $('#btn-cam');
+  b.innerHTML = state.camOn ? ico('stop') + ' Matikan kamera' : ico('camera') + ' Nyalakan kamera';
+  b.className = 'btn grow' + (state.camOn ? ' danger' : '');
+  $('#vf').classList.toggle('on', state.camOn);
+  $('#btn-flip').hidden = !state.camOn;
+}
+
+function camErrorText(e){
+  const name = (e && e.name) || '';
+  const msg  = String((e && e.message) || e || '');
+  if (!window.isSecureContext) return 'Halaman harus dibuka lewat HTTPS agar kamera dapat digunakan.';
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return 'Browser ini tidak mendukung akses kamera. Gunakan Chrome, Edge, Safari, atau Firefox versi terbaru.';
+  if (name === 'NotAllowedError' || /Permission denied/i.test(msg)) return 'Akses kamera ditolak. Klik ikon kamera di address bar, pilih "Selalu izinkan", lalu muat ulang halaman.';
+  if (name === 'NotFoundError' || name === 'DevicesNotFoundError') return 'Tidak ada kamera yang terdeteksi pada perangkat ini.';
+  if (name === 'NotReadableError' || name === 'TrackStartError') return 'Kamera sedang dipakai aplikasi lain. Tutup aplikasi atau tab tersebut, lalu coba lagi.';
+  return 'Kamera tidak dapat dibuka. ' + (name ? name + ': ' : '') + msg;
+}
+
+async function startCam(){
+  if (state.camOn || state.camBusy) return;
+  if (!window.Html5Qrcode){ toast('Pustaka kamera belum termuat. Periksa koneksi internet.', 'err', 5000); return; }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ toast(camErrorText({}), 'err', 8000); return; }
+
+  unlockAudio();
+  state.camBusy = true;
+  const b = $('#btn-cam'); b.disabled = true;
+  try{
+    let probe;
+    try{
+      probe = await navigator.mediaDevices.getUserMedia({ video:{ facingMode: state.facing } });
+    }catch(e1){
+      if (e1 && (e1.name === 'OverconstrainedError' || e1.name === 'NotFoundError')) probe = await navigator.mediaDevices.getUserMedia({ video:true });
+      else throw e1;
+    }
+    probe.getTracks().forEach(t => t.stop());
+
+    if (!state.cam) state.cam = new Html5Qrcode('reader', { verbose:false });
+    const cfg = { fps:10 };
+    try{
+      await state.cam.start({ facingMode: state.facing }, cfg, txt => handleCode(txt), () => {});
+    }catch(e2){
+      const cams = await Html5Qrcode.getCameras();
+      if (!cams || !cams.length) throw e2;
+      const pick = cams.find(c => /back|rear|belakang|environment/i.test(c.label || '')) || cams[cams.length - 1];
+      await state.cam.start(pick.id, cfg, txt => handleCode(txt), () => {});
+    }
+    state.camOn = true;
+  }catch(e){
+    toast(camErrorText(e), 'err', 9000);
+  }
+  state.camBusy = false;
+  b.disabled = false;
+  updateCamUI();
+}
+
+async function stopCam(){
+  if (state.cam){
+    try{ await state.cam.stop(); }catch(e){}
+    try{ state.cam.clear(); }catch(e){}
+  }
+  state.camOn = false;
+  try{ updateCamUI(); }catch(e){}
+}
+
+$('#btn-cam').onclick = () => state.camOn ? stopCam() : startCam();
+$('#btn-flip').onclick = async () => {
+  state.facing = state.facing === 'environment' ? 'user' : 'environment';
+  await stopCam(); startCam();
+};
+
+function submitNis(){
+  const inp = $('#scan-input'), v = inp.value;
+  inp.value = ''; lastCode = '';
+  handleCode(v);
+}
+$('#scan-input').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); submitNis(); } });
+$('#btn-nis').onclick = submitNis;
+
+$('#file-qr').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try{
+    if (!window.Html5Qrcode) throw new Error('Pustaka QR belum termuat.');
+    if (!state.camFile) state.camFile = new Html5Qrcode('reader-file', { verbose:false });
+    const txt = await state.camFile.scanFile(f, false);
+    lastCode = ''; handleCode(txt);
+  }catch(err){
+    toast('QR pada foto tidak terbaca. Pastikan QR terlihat jelas dan tidak terpotong.', 'err', 5000);
+  }
+  e.target.value = '';
+};
+</script>
+</body>
+</html>
