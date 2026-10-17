@@ -24,6 +24,7 @@
 html,body{margin:0}
 body{font-family:'Plus Jakarta Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--ink);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
 button,input,select{font:inherit;color:inherit}
+button,.btn,.chip,label{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 [hidden]{display:none!important}
 svg{display:block}
 h1,h2,h3{margin:0;line-height:1.25}
@@ -37,7 +38,7 @@ h1,h2,h3{margin:0;line-height:1.25}
 .btn.ghost{background:#fff;color:var(--pine);border-color:var(--line)}
 .btn.ghost:hover{background:var(--pine-l)}
 .btn.block{width:100%}
-.input{width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:#fff;transition:border-color .15s,box-shadow .15s}
+.input{width:100%;font-size:16px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:#fff;transition:border-color .15s,box-shadow .15s}
 .input:focus{outline:none;border-color:var(--pine);box-shadow:0 0 0 3px rgba(11,79,74,.15)}
 .field{display:flex;flex-direction:column;gap:6px}
 .field>label{font-size:13px;font-weight:700}
@@ -177,6 +178,38 @@ h1,h2,h3{margin:0;line-height:1.25}
   .chips{margin:0 0 6px;padding-left:2px;padding-right:2px;flex-wrap:wrap;overflow:visible}
   .panel{margin-top:16px}
   .side .result{margin-top:0}
+}
+
+/* ---------- tampilan HP ---------- */
+@media (max-width:560px){
+  body{font-size:14px}
+  .wrap{padding:12px 12px calc(32px + env(safe-area-inset-bottom,0px))}
+  .chips{margin:0 -12px 6px;padding-left:12px;padding-right:12px}
+  .chip{padding:9px 12px;font-size:14px}
+  .top{padding:10px 12px;padding-top:calc(10px + env(safe-area-inset-top,0px));gap:8px}
+  .top .brand{gap:8px}
+  .top .logo{width:36px;height:36px}
+  #brand-name{display:none}
+  .top .brand small{font-size:13px;color:#cfe3e0;font-weight:600}
+  .top b{font-size:14px}
+  .top .right{gap:6px}
+  .top .btn{padding:8px 10px;font-size:12px}
+  .clock b{font-size:14px}
+  .clock small{display:none}
+  .vl{display:none}
+  .login-card{padding:22px}
+  .vf{max-height:46vh;border-radius:18px}
+  .result{padding:14px;min-height:96px;border-radius:18px}
+  .result .avatar{width:50px;height:50px;font-size:18px}
+  .result h3{font-size:18px}
+  .panel{padding:14px;border-radius:16px}
+  .tools .grow{flex:1 1 100%}
+  .pop-card{padding:22px 18px 16px;max-height:92vh;overflow:auto}
+  .pop-name{font-size:22px}
+}
+@media (max-width:340px){
+  .top .brand small{display:none}
+  .top .btn{padding:8px}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
@@ -370,7 +403,7 @@ try{ state.voiceOn = localStorage.getItem('scan_voice') !== 'off'; }catch(e){}
 
 function updateVoiceUI(){
   const b = $('#btn-voice');
-  b.textContent = state.voiceOn ? 'Suara: Nyala' : 'Suara: Mati';
+  b.innerHTML = (state.voiceOn ? '&#128266;' : '&#128263;') + '<span class="vl"> Suara ' + (state.voiceOn ? 'nyala' : 'mati') + '</span>';
   b.classList.toggle('off', !state.voiceOn);
   b.setAttribute('aria-pressed', String(state.voiceOn));
 }
