@@ -303,6 +303,7 @@ h1,h2,h3{margin:0;line-height:1.25}
         </div>
       </section>
     </div>
+    <p class="hint" style="text-align:center;margin-top:18px">Versi 5</p>
   </main>
 </div>
 
@@ -420,15 +421,27 @@ document.addEventListener('pointerdown', unlockAudio, { once:true });
 document.addEventListener('keydown', unlockAudio, { once:true });
 if (window.speechSynthesis) speechSynthesis.getVoices();
 
-function speak(text){
+// interrupt=true  : ucapan sambutan siswa baru, menggantikan ucapan sebelumnya
+// interrupt=false : ucapan tambahan (sudah tercatat, galat), TIDAK memotong ucapan yang sedang berjalan
+let speechBusyUntil = 0;
+const speechMs = t => Math.round(String(t).length * 95 + 900);   // perkiraan lama ucapan
+
+function speak(text, interrupt){
   if (!state.voiceOn || !window.speechSynthesis || !text) return;
   try{
-    speechSynthesis.cancel();
+    if (interrupt === false){
+      // jangan memotong ucapan yang sedang berjalan
+      if (Date.now() < speechBusyUntil || speechSynthesis.speaking || speechSynthesis.pending) return;
+    } else {
+      speechSynthesis.cancel();
+    }
     const u = new SpeechSynthesisUtterance(text);
     u.lang = 'id-ID';
     u.rate = 0.95;
     const v = speechSynthesis.getVoices().find(v => /^id[-_]/i.test(v.lang) || /indonesia/i.test(v.name));
     if (v) u.voice = v;
+    speechBusyUntil = Date.now() + speechMs(text);
+    u.onend = u.onerror = () => { speechBusyUntil = 0; };
     speechSynthesis.speak(u);
   }catch(e){}
 }
@@ -582,6 +595,8 @@ async function checkLibur(){
  *  PILIH JENIS ABSEN
  * ===================================================================== */
 let lastCode = '', lastAt = 0;
+const inflight = new Set();   // kode yang sedang dikirim ke server
+const COOLDOWN = 8000;        // kode yang sama diabaikan selama 8 detik
 
 function fillDetail(sel, jenisKey, allLabel){
   const meta = state.boot.jenis.find(j => j.key === jenisKey);
@@ -621,11 +636,16 @@ function showResult(kind, title, sub, name){
   flash(col);
 }
 
-async function handleCode(raw){
+const recentOk = {};   // kode -> waktu berhasil dicatat
+const OK_QUIET = 20000;  // kamera tidak memunculkan 'sudah tercatat' selama 20 detik setelah berhasil
+
+async function handleCode(raw, fromCam){
   const code = String(raw || '').trim();
   if (!code) return;
   const now = Date.now();
-  if (code === lastCode && now - lastAt < 3000) return;
+  if (inflight.has(code)) return;
+  if (fromCam && recentOk[code] && now - recentOk[code] < OK_QUIET) return;
+  if (code === lastCode && now - lastAt < COOLDOWN) return;
   lastCode = code; lastAt = now;
 
   const meta = state.boot.jenis.find(j => j.key === state.jenis);
@@ -633,16 +653,20 @@ async function handleCode(raw){
     const lbl = detailLabel(state.jenis).toLowerCase();
     showResult('err', 'Pilih ' + lbl, 'Pilih dulu di bagian atas, lalu pindai ulang kartunya.');
     showPop('err', { title:'Belum bisa dicatat', nama:'Pilih ' + lbl, msg:'Pilih dulu di bagian atas, lalu pindai ulang kartunya.' });
-    beep('err'); speak('Pilih ' + lbl + ' terlebih dahulu.');
+    beep('err'); speak('Pilih ' + lbl + ' terlebih dahulu.', false);
     lastCode = ''; return;
   }
+  inflight.add(code);
   try{
     const r = await call('scan', state.jenis, state.detail, code);
     if (r.ok){
       const late = r.status === 'Terlambat';
       showResult(late ? 'late' : 'ok', r.siswa.nama,
         `${esc(r.siswa.kelas)}, NIS ${esc(r.siswa.nis)}<br><span class="pill s-${esc(r.status)}" style="margin-top:6px">${esc(r.status)} pukul ${esc(r.jam)}</span>`, r.siswa.nama);
+      recentOk[code] = Date.now();
+      const sapa = greeting(state.jenis, r.siswa.nama, late);
       showPop(late ? 'late' : 'ok', {
+        ms: Math.max(3500, speechMs(sapa) + 1000),
         title: late ? 'Absen tercatat - Terlambat' : 'Absen berhasil',
         nama: r.siswa.nama,
         rows: [
@@ -653,7 +677,7 @@ async function handleCode(raw){
         ]
       });
       beep(late ? 'warn' : 'ok');
-      speak(greeting(state.jenis, r.siswa.nama, late));
+      speak(sapa);
       loadLog();
     } else if (r.code === 'DUP'){
       showResult('dup', r.siswa.nama, `${esc(r.siswa.kelas)}<br>${esc(r.msg)}`, r.siswa.nama);
@@ -667,21 +691,24 @@ async function handleCode(raw){
         ],
         msg: r.msg
       });
-      beep('warn'); speak('Sudah tercatat.');
+      beep('warn'); speak('Sudah tercatat.', false);
     } else if (r.code === 'LIBUR'){
       showResult('err', 'Absensi ditutup', esc(r.msg));
       showPop('err', { title:'Absensi ditutup', nama:'Hari libur', msg:r.msg });
-      beep('warn'); speak('Absensi ditutup. Hari ini libur.');
+      beep('warn'); speak('Absensi ditutup. Hari ini libur.', false);
     } else {
       showResult('err', 'Tidak dikenali', esc(r.msg));
       showPop('err', { title:'Gagal', nama:'Tidak dikenali', msg:r.msg });
-      beep('err'); speak('Kode tidak dikenali.');
+      beep('err'); speak('Kode tidak dikenali.', false);
     }
   }catch(e){
     showResult('err', 'Gagal menyimpan', esc(e.message));
     showPop('err', { title:'Gagal menyimpan', nama:'Coba lagi', msg:e.message, ms:4500 });
-    beep('err'); speak('Gagal menyimpan. Silakan coba lagi.');
+    beep('err'); speak('Gagal menyimpan. Silakan coba lagi.', false);
     lastCode = '';
+  }finally{
+    inflight.delete(code);
+    if (lastCode) lastAt = Date.now();
   }
 }
 
@@ -747,12 +774,12 @@ async function startCam(){
     if (!state.cam) state.cam = new Html5Qrcode('reader', { verbose:false });
     const cfg = { fps:10 };
     try{
-      await state.cam.start({ facingMode: state.facing }, cfg, txt => handleCode(txt), () => {});
+      await state.cam.start({ facingMode: state.facing }, cfg, txt => handleCode(txt, true), () => {});
     }catch(e2){
       const cams = await Html5Qrcode.getCameras();
       if (!cams || !cams.length) throw e2;
       const pick = cams.find(c => /back|rear|belakang|environment/i.test(c.label || '')) || cams[cams.length - 1];
-      await state.cam.start(pick.id, cfg, txt => handleCode(txt), () => {});
+      await state.cam.start(pick.id, cfg, txt => handleCode(txt, true), () => {});
     }
     state.camOn = true;
   }catch(e){
