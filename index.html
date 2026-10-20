@@ -303,7 +303,7 @@ h1,h2,h3{margin:0;line-height:1.25}
         </div>
       </section>
     </div>
-    <p class="hint" style="text-align:center;margin-top:18px">Versi 5</p>
+    <p class="hint" style="text-align:center;margin-top:18px">Versi 6</p>
   </main>
 </div>
 
@@ -424,7 +424,7 @@ if (window.speechSynthesis) speechSynthesis.getVoices();
 // interrupt=true  : ucapan sambutan siswa baru, menggantikan ucapan sebelumnya
 // interrupt=false : ucapan tambahan (sudah tercatat, galat), TIDAK memotong ucapan yang sedang berjalan
 let speechBusyUntil = 0;
-const speechMs = t => Math.round(String(t).length * 95 + 900);   // perkiraan lama ucapan
+const speechMs = t => Math.round(String(t).length * 70 + 500);   // perkiraan lama ucapan
 
 function speak(text, interrupt){
   if (!state.voiceOn || !window.speechSynthesis || !text) return;
@@ -437,7 +437,7 @@ function speak(text, interrupt){
     }
     const u = new SpeechSynthesisUtterance(text);
     u.lang = 'id-ID';
-    u.rate = 0.95;
+    u.rate = 1.1;
     const v = speechSynthesis.getVoices().find(v => /^id[-_]/i.test(v.lang) || /indonesia/i.test(v.name));
     if (v) u.voice = v;
     speechBusyUntil = Date.now() + speechMs(text);
@@ -448,16 +448,15 @@ function speak(text, interrupt){
 
 // Kalimat ucapan sesuai jenis absen
 function greeting(jenisKey, nama, late){
+  // Tanpa menyebut nama siswa, supaya singkat dan antrean tetap lancar
   const meta = (state.boot && state.boot.jenis.find(j => j.key === jenisKey)) || {};
   const l = (String(jenisKey) + ' ' + (meta.label || '')).toLowerCase();
-  const n = nama;
-  if (/pulang/.test(l))                               return `Terima kasih, ${n}. Hati-hati di jalan.`;
-  if (/dhuha|duha|dzuhur|zuhur|sholat|salat/.test(l)) return `Terima kasih, ${n}. Semoga ibadahnya diterima.`;
-  if (/upacara/.test(l))                              return `Selamat pagi, ${n}. Silakan masuk barisan.`;
-  if (/ekstra|ekskul/.test(l))                        return `Selamat datang, ${n}. Selamat berlatih.`;
-  if (/mapel|pelajaran/.test(l))                      return `${n}, silakan masuk. Selamat belajar.`;
-  return late ? `Selamat datang, ${n}. Anda terlambat, silakan masuk.`
-              : `Selamat datang, ${n}. Selamat belajar.`;
+  if (/pulang/.test(l))                               return 'Terima kasih. Hati-hati di jalan.';
+  if (/dhuha|duha|dzuhur|zuhur|sholat|salat/.test(l)) return 'Terima kasih. Semoga diterima.';
+  if (/upacara/.test(l))                              return 'Selamat pagi. Silakan masuk barisan.';
+  if (/ekstra|ekskul/.test(l))                        return 'Selamat berlatih.';
+  if (/mapel|pelajaran/.test(l))                      return 'Silakan masuk. Selamat belajar.';
+  return late ? 'Selamat datang. Anda terlambat.' : 'Selamat datang. Selamat belajar.';
 }
 
 /* =====================================================================
@@ -482,7 +481,7 @@ function showPop(kind, o){
   $('#pop-body').innerHTML = body;
   $('#pop').hidden = false;
   clearTimeout(popTimer);
-  popTimer = setTimeout(hidePop, o.ms || 3500);
+  popTimer = setTimeout(hidePop, o.ms || 3000);
 }
 
 // Keterangan absen, misalnya "Kelas masuk" atau "Mata pelajaran - Matematika"
@@ -666,7 +665,7 @@ async function handleCode(raw, fromCam){
       recentOk[code] = Date.now();
       const sapa = greeting(state.jenis, r.siswa.nama, late);
       showPop(late ? 'late' : 'ok', {
-        ms: Math.max(3500, speechMs(sapa) + 1000),
+        ms: Math.max(2500, speechMs(sapa) + 600),
         title: late ? 'Absen tercatat - Terlambat' : 'Absen berhasil',
         nama: r.siswa.nama,
         rows: [
